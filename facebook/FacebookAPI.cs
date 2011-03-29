@@ -16,11 +16,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Net;
+using System.Globalization;
 using System.IO;
+using System.Net;
+using System.Text;
 using System.Web;
-using System.Web.Script.Serialization;
 
 namespace Facebook
 {
@@ -37,6 +37,16 @@ namespace Facebook
     /// </summary>
     public class FacebookAPI
     {  
+        /// <summary>
+        /// Graph API Uri
+        /// </summary>
+        private const string GraphUri = "https://graph.facebook.com";
+        
+        /// <summary>
+        /// Legacy REST Uri
+        /// </summary>
+        private const string LegacyRESTUri = "https://api.facebook.com";
+
         /// <summary>
         /// The access token used to authenticate API calls.
         /// </summary>
@@ -119,7 +129,8 @@ namespace Facebook
                                 HttpVerb httpVerb,
                                 Dictionary<string, string> args)
         {
-            Uri baseURL = new Uri("https://graph.facebook.com");
+            string remoteUri = FacebookAPI.DetermineBaseUri(relativePath);
+            Uri baseURL = new Uri(remoteUri);
             Uri url = new Uri(baseURL, relativePath);
             if (args == null)
             {
@@ -148,7 +159,7 @@ namespace Facebook
         /// Make an HTTP request, with the given query args
         /// </summary>
         /// <param name="url">The URL of the request</param>
-        /// <param name="verb">The HTTP verb to use</param>
+        /// <param name="httpVerb">The HTTP verb to use</param>
         /// <param name="args">Dictionary of key/value pairs that represents
         /// the key/value pairs for the request</param>
         private string MakeRequest(Uri url, HttpVerb httpVerb,
@@ -219,5 +230,45 @@ namespace Facebook
             sb.Remove(sb.Length - 1, 1); // Remove trailing &
             return sb.ToString();
         }
+
+        /// <summary>
+        /// Performs an FQL query
+        /// </summary>
+        /// <param name="query">The query to perform</param>
+        /// <returns></returns>
+        public JSONObject FQL(string query)
+        {
+            return this.Get("/method/fql.query", new Dictionary<string, string> {
+                { "query", query },
+                { "format", "json" }
+            });
+        }
+
+        /// <summary>
+        /// Does the path indicate that the legacy REST API should be called?
+        /// </summary>
+        /// <param name="relativePath">Path for request</param>
+        /// <returns>True if the path indicates that the legacy REST API should be called</returns>
+        private static bool IsLegacyRESTPath(string relativePath)
+        {
+            if (String.IsNullOrEmpty(relativePath))
+                return false;
+
+            if (relativePath.StartsWith("/method/fql", true, CultureInfo.InvariantCulture))
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Determnie the correct base URI for FB API requests.
+        /// </summary>
+        /// <param name="relativePath">Relative path for request</param>
+        /// <returns>Correct base uri for the given path</returns>
+        private static string DetermineBaseUri(string relativePath)
+        {
+            return FacebookAPI.IsLegacyRESTPath(relativePath) ? FacebookAPI.LegacyRESTUri : FacebookAPI.GraphUri;
+        }
+        
     }
 }
